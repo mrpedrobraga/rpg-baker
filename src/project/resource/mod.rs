@@ -56,44 +56,123 @@ impl ResourceDatabase {
         };
 
         for entry in WalkDir::new(base_path).into_iter().filter_map(|x| x.ok()) {
-            let path = entry.path();
-            if !(path.is_file() && path.extension().map_or(false, |ext| ext == "json")) {
-                continue;
+            let sample = Self::get_sample(entry.path());
+            if let Some(sample) = sample {
+                database.resources.insert(
+                    sample.uuid,
+                    ResourceEntry {
+                        path: entry.path().to_path_buf(),
+                        data: None,
+                    },
+                );
             }
-            if path.ends_with("project.json") {
-                continue;
-            }
-            let text = std::fs::read_to_string(path);
-            let text = match text {
-                Ok(t) => t,
-                Err(_) => {
-                    // TODO: Use `tracing` here.
-                    eprintln!("Failed to open resource file: {}", path.display());
-                    continue;
-                }
-            };
-
-            let sample = serde_json::from_str(text.as_ref());
-            let sample: ResourceSample = match sample {
-                Ok(t) => t,
-                Err(e) => {
-                    // TODO: Use `tracing` here.
-                    eprintln!("Failure to parse resource file: {}", path.display());
-                    eprintln!("{:?}", e);
-                    continue;
-                }
-            };
-
-            database.resources.insert(
-                sample.uuid,
-                ResourceEntry {
-                    path: path.to_path_buf(),
-                    data: None,
-                },
-            );
         }
 
         database
+    }
+
+    /// Samples a file to check for a resource!
+    fn get_sample<P: AsRef<Path>>(path: P) -> Option<ResourceSample> {
+        let path = path.as_ref();
+
+        if !(path.is_file() && path.extension().map_or(false, |ext| ext == "json")) {
+            return None;
+        }
+        if path.ends_with("project.json") {
+            return None;
+        }
+        let text = std::fs::read_to_string(path);
+        let text = match text {
+            Ok(t) => t,
+            Err(_) => {
+                // TODO: Use `tracing` here.
+                eprintln!("Failed to open resource file: {}", path.display());
+                return None;
+            }
+        };
+
+        let sample = serde_json::from_str(text.as_ref());
+        let sample: ResourceSample = match sample {
+            Ok(t) => t,
+            Err(e) => {
+                // TODO: Use `tracing` here.
+                eprintln!("Failure to parse resource file: {}", path.display());
+                eprintln!("{:?}", e);
+                return None;
+            }
+        };
+
+        Some(sample)
+    }
+
+    /// Watches over a directory and updates resources whenever they change.
+    pub fn watch(&mut self, base_path: PathBuf) -> Result<(), notify::Error> {
+        use notify::Watcher as _;
+
+        let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+        let mut watcher = notify::recommended_watcher(tx)?;
+        watcher.watch(base_path.as_path(), notify::RecursiveMode::Recursive)?;
+
+        for res in rx {
+            match res {
+                // TODO: Decide the rules for hot reloading!
+                Ok(event) => match event.kind {
+                    notify::EventKind::Any => {}
+                    notify::EventKind::Access(_) => {}
+                    notify::EventKind::Create(_) => {
+                        event.paths.iter().for_each(|path| {
+                            self.patch_entry_from_path(path.clone());
+                        });
+                    }
+                    notify::EventKind::Modify(modify_kind) => match modify_kind {
+                        notify::event::ModifyKind::Any => {}
+                        _ => {
+                            event.paths.iter().for_each(|path| {
+                                self.patch_entry_from_path(path.clone());
+                            });
+                        }
+                    },
+                    notify::EventKind::Remove(_) => todo!(),
+                    notify::EventKind::Other => todo!(),
+                },
+                // TODO: Use `tracing` for this.
+                Err(e) => eprintln!("Error watching resources: {}", base_path.display()),
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn patch_entry_from_path(&mut self, path: PathBuf) {
+        let sample = Self::get_sample(path.as_path());
+        if let Some(sample) = sample {
+            // TODO: Use `tracing` for this!
+            println!("Hot Reloading {}", path.display());
+
+            if let Some(existing_entry) = self.resources.get_mut(&sample.uuid) {
+                existing_entry.path = path.clone();
+                if let Some(loaded_resource_data) = &existing_entry.data {
+                    match Resource::load(path.as_path()) {
+                        Ok(new_data) => loaded_resource_data.set(dbg!(new_data)),
+                        // TODO: Use `tracing` for this!
+                        Err(e) => eprintln!(
+                            "Failure to hot reload resource with UUID {} at {} because {:?}",
+                            sample.uuid,
+                            path.display(),
+                            e
+                        ),
+                    }
+                }
+            } else {
+                self.resources.insert(
+                    sample.uuid,
+                    ResourceEntry {
+                        path: path.clone(),
+                        data: None,
+                    },
+                );
+            }
+        }
     }
 
     /// Loads an [`ExternalResource`] reference in place.

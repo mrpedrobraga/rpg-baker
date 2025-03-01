@@ -17,11 +17,11 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     #[serde(skip)]
-    base_path: PathBuf,
-    name: String,
-    version: String,
-    description: String,
-    authors: Vec<String>,
+    pub base_path: PathBuf,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub authors: Vec<String>,
     #[serde(skip)]
     pub resource_database: ResourceDatabase,
 }

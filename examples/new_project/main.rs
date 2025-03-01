@@ -15,7 +15,5 @@ fn main() -> Result<(), ResourceLoadError> {
     };
     p.resource_database.load(&mut room_a)?;
 
-    dbg!(p);
-
     Ok(())
 }
