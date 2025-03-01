@@ -1,0 +1,8 @@
+{
+  "uuid": "3018f3cf-016e-4df5-907c-60435d033d8d",
+  "type": "Room",
+  "data": {
+    "name": "Room A",
+    "layers": [{ "name": "Floor", "scroll_factor": [0, 0], "type": "Tiles" }]
+  }
+}

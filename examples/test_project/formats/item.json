@@ -1,0 +1,12 @@
+{
+  "uuid": "3731293d-c748-453c-ba7d-091e8bc1b6fe",
+  "type": "Format",
+  "data": {
+    "name": "Item",
+    "type": "Tuple",
+    "content": [
+      ["name", { "type": "BaseType", "content": "Text" }],
+      ["description", { "type": "BaseType", "content": "Text" }]
+    ]
+  }
+}

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Room {
     name: String,
-    description: String,
+    description: Option<String>,
     layers: Vec<RoomLayer>,
 }
 
@@ -14,19 +14,21 @@ pub struct Room {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomLayer {
     name: String,
-    data: RoomLayerData,
-    scroll_factors: (f32, f32),
+    scroll_factor: (f32, f32),
+    #[serde(flatten)]
+    content: RoomLayerContent,
 }
 
 /// Data for a [`RoomLayer`], contains the editable content for the layer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RoomLayerData {
-    /// A layer containing a single image;
-    ImageLayer,
-    /// A layer containing tiles chosen from a [`TileMap`];
-    TileLayer,
-    /// A layer containing many object instances;
-    ObjectLayer(ObjectLayer),
+#[serde(tag = "type", content = "content")]
+pub enum RoomLayerContent {
+    /// This layer contains a single image;
+    Image,
+    /// This layer contains tiles chosen from a [`TileMap`];
+    Tiles,
+    /// This layer contains many object instances;
+    Objects(ObjectLayer),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
