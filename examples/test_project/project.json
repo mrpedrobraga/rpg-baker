@@ -4,5 +4,9 @@
   "description": "A new RPG from a handsome game developer!",
   "authors": [
     "You"
-  ]
+  ],
+  "story_definition": {
+    "type": "base_type",
+    "content": "void"
+  }
 }

@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
 use std::path::{Path, PathBuf};
 
+use crate::format::{BaseType, Format};
+
 /// An RPG Baker project, assumed to be saved on disk to a folder.
 ///
 /// A project is described by a folder containing a `project.json`.
@@ -24,26 +26,30 @@ pub struct Project {
     pub authors: Vec<String>,
     #[serde(skip)]
     pub resource_database: ResourceDatabase,
+
+    /* Game Stuff */
+    story_definition: Format,
 }
 
 impl Project {
     /// Creates a new project into a folder.
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, ResourceSaveError> {
+    pub fn new(path: PathBuf) -> Result<Self, ResourceSaveError> {
         let mut project = Self {
             name: "New Project".into(),
             version: "0.0".into(),
             description: "A new RPG from a handsome game developer!".into(),
             authors: vec!["You".into()],
-            base_path: path.as_ref().into(),
+            base_path: path.clone(),
             resource_database: ResourceDatabase::default(),
+            story_definition: Format::BaseType(BaseType::Void),
         };
 
-        project.save_as(path)?;
+        project._save_as(path)?;
 
         Ok(project)
     }
 
-    /// Loads a project from a folder containing a `project.json` file.
+    /// Loads a project from a directory containing a `project.json` file.
     pub fn load(path: PathBuf) -> Result<Self, ResourceLoadError> {
         let file = std::fs::read_to_string(path.join("project.json").as_path())?;
         let mut project: Project = from_str(file.as_str())?;
@@ -52,12 +58,17 @@ impl Project {
         Ok(project)
     }
 
-    /// Saves a project to disk (this changes the saved path of the project).
+    /// Saves a project to a directory (this changes the saved path of the project).
     #[inline]
-    pub fn save_as<P: AsRef<Path>>(&mut self, path: P) -> Result<(), ResourceSaveError> {
+    pub fn save_as(&mut self, path: PathBuf) -> Result<(), ResourceSaveError> {
+        self.base_path = path.clone();
+        self._save_as(path)
+    }
+
+    #[inline]
+    fn _save_as(&mut self, path: PathBuf) -> Result<(), ResourceSaveError> {
         let project_string = to_string_pretty(self)?;
-        self.base_path = path.as_ref().into();
-        std::fs::write(path.as_ref(), project_string)?;
+        std::fs::write(path.join("project.json"), project_string)?;
         Ok(())
     }
 

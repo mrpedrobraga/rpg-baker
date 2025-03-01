@@ -5,7 +5,7 @@
 //! but you can also create your own using [`Type`]s.
 
 use super::{object::ObjectRecipe, room::Room};
-use crate::formats::FormatDefinition;
+use crate::format::FormatDefinition;
 use futures_signals::signal::Mutable;
 use serde::{Deserialize, Serialize};
 use std::{

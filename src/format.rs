@@ -13,7 +13,7 @@ pub struct FormatDefinition {
 
 /// A tree that describes the type thoroughly.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum Format {
     Tuple(Vec<(String, Format)>),
     Either(Vec<(String, Format)>),
@@ -23,6 +23,7 @@ pub enum Format {
 
 /// A base type from the engine; a primitive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BaseType {
     Never,
     Void,
