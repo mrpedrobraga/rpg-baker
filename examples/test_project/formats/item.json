@@ -3,10 +3,10 @@
   "type": "Format",
   "data": {
     "name": "Item",
-    "type": "Tuple",
+    "type": "tuple",
     "content": [
-      ["name", { "type": "BaseType", "content": "Text" }],
-      ["description", { "type": "BaseType", "content": "Text" }]
+      ["name", { "type": "base_type", "content": "text" }],
+      ["description", { "type": "base_type", "content": "text" }]
     ]
   }
 }

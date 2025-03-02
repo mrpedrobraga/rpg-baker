@@ -136,7 +136,7 @@ impl ResourceDatabase {
                     notify::EventKind::Other => todo!(),
                 },
                 // TODO: Use `tracing` for this.
-                Err(e) => eprintln!("Error watching resources: {}", base_path.display()),
+                Err(e) => eprintln!("Error watching resources: {} {}", base_path.display(), e),
             }
         }
 

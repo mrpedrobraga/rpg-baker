@@ -7,28 +7,36 @@ pub mod object;
 pub mod resource;
 pub mod room;
 use resource::{ResourceDatabase, ResourceLoadError, ResourceSaveError};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use crate::format::{BaseType, Format};
+use crate::{
+    format::{BaseType, Format},
+    plugin::PluginDatabase,
+    scripting::ScriptRecipe,
+};
 
 /// An RPG Baker project, assumed to be saved on disk to a folder.
 ///
 /// A project is described by a folder containing a `project.json`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
     #[serde(skip)]
     pub base_path: PathBuf,
     pub name: String,
-    pub version: String,
+    pub version: semver::Version,
     pub description: String,
     pub authors: Vec<String>,
     #[serde(skip)]
     pub resource_database: ResourceDatabase,
+    #[serde(skip)]
+    pub plugin_database: PluginDatabase,
 
     /* Game Stuff */
     story_definition: Format,
+    startup_routine: ScriptRecipe,
 }
 
 impl Project {
@@ -36,12 +44,14 @@ impl Project {
     pub fn new(path: PathBuf) -> Result<Self, ResourceSaveError> {
         let mut project = Self {
             name: "New Project".into(),
-            version: "0.0".into(),
+            version: Version::new(0, 0, 0),
             description: "A new RPG from a handsome game developer!".into(),
             authors: vec!["You".into()],
             base_path: path.clone(),
             resource_database: ResourceDatabase::default(),
+            plugin_database: PluginDatabase::default(),
             story_definition: Format::BaseType(BaseType::Void),
+            startup_routine: ScriptRecipe::new(),
         };
 
         project._save_as(path)?;
