@@ -25,7 +25,7 @@ pub struct RoomLayer {
 pub enum RoomLayerContent {
     /// This layer contains a single image;
     Image,
-    /// This layer contains tiles chosen from a [`TileMap`];
+    /// This layer contains tiles chosen from a TileMap;
     Tiles,
     /// This layer contains many object instances;
     Objects(ObjectLayer),

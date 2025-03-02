@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+either = { version = "1.14.0", features = ["serde"] }
 futures-signals = "0.3.34"
 notify = "8.0.0"
 semver = { version = "1.0.25", features = ["serde"] }

@@ -1,8 +1,3 @@
-//! # RPG Baker
-//!
-//! An RPG engine/editor with an approachable and fun design that allows for
-//! extensively personalized games.
-
 pub mod object;
 pub mod resource;
 pub mod room;
