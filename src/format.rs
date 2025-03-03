@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use serde::{Deserialize, Serialize};
 
 use crate::project::resource::ExternalResource;
@@ -25,9 +27,35 @@ pub enum Format {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BaseType {
-    Never,
     Void,
     Int,
     Float,
     Text,
+}
+
+impl BaseType {
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            BaseType::Void => TypeId::of::<()>(),
+            BaseType::Int => TypeId::of::<i32>(),
+            BaseType::Float => TypeId::of::<f32>(),
+            BaseType::Text => TypeId::of::<String>(),
+        }
+    }
+}
+
+/// Describes a value.
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "t", content = "v")]
+pub enum VariantValue {
+    /// An integer number (with 32 bits).
+    Int(i32),
+}
+
+impl VariantValue {
+    pub fn base_type(&self) -> BaseType {
+        match self {
+            VariantValue::Int(_) => BaseType::Int,
+        }
+    }
 }

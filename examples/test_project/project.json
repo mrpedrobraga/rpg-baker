@@ -1,6 +1,6 @@
 {
   "name": "New Project",
-  "version": "0.0",
+  "version": "0.0.0",
   "description": "A new RPG from a handsome game developer!",
   "authors": [
     "You"
@@ -8,5 +8,10 @@
   "story_definition": {
     "type": "base_type",
     "content": "void"
+  },
+  "startup_routine": {
+    "content": {
+      "blocks": []
+    }
   }
 }

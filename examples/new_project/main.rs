@@ -1,26 +1,66 @@
-use rpg_baker::project::{
-    Project,
-    resource::{ExternalResource, ResourceLoadError},
+use futures_signals::signal_vec::MutableVec;
+use rpg_baker::{
+    format::VariantValue,
+    project::{Project, resource::ResourceLoadError},
+    scripting::{
+        BlockInstanceDescriptor, BlockPartDescriptor, BlockScopeDescriptor, BlockSlotDescriptor,
+        BlockSourceDescriptor, ScriptRecipe,
+    },
 };
-use std::{path::Path, str::FromStr};
-use uuid::Uuid;
+use std::path::Path;
 
 fn main() -> Result<(), ResourceLoadError> {
     let path = Path::new("./examples/test_project").to_path_buf();
-    let create_project = false;
+    let project = Project::new(path).expect("Failed to create new project.");
 
-    if create_project {
-        Project::new(path).expect("Failed to create new project.");
-    } else {
-        let mut p = Project::load(path).expect("Failed to load project.");
-        let mut room_a = ExternalResource {
-            uuid: Uuid::from_str(&"3731293d-c748-453c-ba7d-091e8bc1b6fe")
-                .expect("Not a valid UUID!"),
-            handle: None,
-        };
-        p.resource_database.load(&mut room_a)?;
-        dbg!(room_a);
+    let test_block = BlockInstanceDescriptor {
+        source: BlockSourceDescriptor::Builtin(rpg_baker::scripting::BuiltinBlockRef::Add),
+        parts: vec![BlockPartDescriptor {
+            phrase: vec![
+                BlockSlotDescriptor::Block(BlockInstanceDescriptor {
+                    source: BlockSourceDescriptor::Builtin(
+                        rpg_baker::scripting::BuiltinBlockRef::Int,
+                    ),
+                    parts: vec![BlockPartDescriptor {
+                        phrase: vec![BlockSlotDescriptor::VariantValue(VariantValue::Int(1))],
+                        body: None,
+                    }],
+                }),
+                BlockSlotDescriptor::Block(BlockInstanceDescriptor {
+                    source: BlockSourceDescriptor::Builtin(
+                        rpg_baker::scripting::BuiltinBlockRef::Int,
+                    ),
+                    parts: vec![BlockPartDescriptor {
+                        phrase: vec![BlockSlotDescriptor::VariantValue(VariantValue::Int(2))],
+                        body: None,
+                    }],
+                }),
+            ],
+            body: None,
+        }],
+    };
+
+    {
+        let text = serde_json::to_string_pretty(&test_block);
+        println!("{}", text.expect("Failed to serialize!"));
+
+        let block = test_block.clone().reify();
+
+        match block {
+            Ok(block) => {
+                dbg!(block.evaluate());
+            }
+            Err(e) => {
+                eprintln!("{:?}", e);
+            }
+        }
     }
+
+    let startup_sequence = ScriptRecipe {
+        content: BlockScopeDescriptor {
+            blocks: MutableVec::new_with_values(vec![test_block]),
+        },
+    };
 
     Ok(())
 }

@@ -37,3 +37,9 @@ pub struct PluginMetadata {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginContributions {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockContributionRef {
+    pub plugin_id: Option<String>,
+    pub block_id: String,
+}

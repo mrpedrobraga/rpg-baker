@@ -1,21 +1,117 @@
+use crate::{format::VariantValue, plugin::BlockContributionRef};
+use either::Either;
+use futures_signals::signal_vec::MutableVec;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 
-use either::Either;
-use futures_signals::signal::Mutable;
-use serde::{Deserialize, Serialize};
+pub mod std_blocks;
 
 /// A Recipe specifying a runtime behaviour (a script).
-#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
-pub struct ScriptRecipe {}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptRecipe {
+    pub content: BlockScopeDescriptor,
+}
 
 impl ScriptRecipe {
     /// Returns a new, empty recipe.
     pub fn new() -> Self {
-        ScriptRecipe {}
+        ScriptRecipe {
+            content: BlockScopeDescriptor {
+                blocks: MutableVec::new(),
+            },
+        }
     }
 }
 
+/// Describes a builtin block.
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BuiltinBlockRef {
+    /// Exits the current screen.
+    Exit,
+    /// Describes [`standard::Int`].
+    Int,
+    /// Add [`standard::Add`].
+    Add,
+}
+
+/// Describes a block in a recipe while not running yet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockScopeDescriptor {
+    pub blocks: MutableVec<BlockInstanceDescriptor>,
+}
+
+/// Describes a block in a recipe while not running yet.
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct BlockInstanceDescriptor {
+    pub source: BlockSourceDescriptor,
+    pub parts: Vec<BlockPartDescriptor>,
+}
+
+impl BlockInstanceDescriptor {
+    /// Transforms a block descriptor into a real block that can be executed and whatnot!
+    pub fn reify(&self) -> Result<Box<dyn TypedBlock<Output = i32>>, FromDescriptorError> {
+        match &self.source {
+            BlockSourceDescriptor::Builtin(builtin_block_ref) => match builtin_block_ref {
+                BuiltinBlockRef::Exit => todo!(),
+                BuiltinBlockRef::Int => Ok(Box::new(std_blocks::Int::from_descriptor(&self)?)),
+                BuiltinBlockRef::Add => Ok(Box::new(std_blocks::Add::from_descriptor(&self)?)),
+            },
+            BlockSourceDescriptor::Plugin(_) => unimplemented!(),
+        }
+    }
+}
+
+/// Describes a part of a block, which contains a phrase and a body.
+///
+/// For example, block that reads `if <cond> then { block } else { block2 }` has two parts,
+/// the "if" and the "else." The phrases of the parts are the "if <cond> then" and "else",
+/// and the blocks are the "{ block }" and "{block2}".
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct BlockPartDescriptor {
+    pub phrase: Vec<BlockSlotDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<Vec<BlockInstanceDescriptor>>,
+}
+
+/// Describes what goes in a block's slot, which can be a block or a value.
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", untagged)]
+pub enum BlockSlotDescriptor {
+    VariantValue(VariantValue),
+    Block(BlockInstanceDescriptor),
+}
+
+/// Describes which block to be created for a block descriptor.
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase", tag = "plugin", content = "id")]
+pub enum BlockSourceDescriptor {
+    Plugin(BlockContributionRef),
+    Builtin(BuiltinBlockRef),
+}
+
 pub trait Block {
+    /// Returns information about what this block does (and what it returns).
+    fn description() -> &'static str;
+
+    /// Creates a new block with default values.
+    fn create() -> Self;
+
+    /// Creates a block from a [`BlockRecipeDescriptor`].
+    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, FromDescriptorError>
+    where
+        Self: Sized;
+}
+
+/// Describes an error when creating a [`Block`] from a [`BlockInstanceDescriptor`].
+#[derive(Debug)]
+pub enum FromDescriptorError {
+    ShouldBeAVariant(BlockSlotPosition),
+    BlockPlaceError(BlockPlaceError),
+    Child(BlockSlotPosition, Box<FromDescriptorError>),
+}
+
+pub trait TypedBlock {
     /// The type this block evaluates to.
     type Output;
 
@@ -23,10 +119,9 @@ pub trait Block {
     fn evaluate(&self) -> Self::Output;
 }
 
-/// When a user puts a block onto another block,
-/// where do they do it.
+/// Describes the position a slot occupies within its block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BlockPlacePosition {
+pub enum BlockSlotPosition {
     /// Place onto a slot in one of the block's phrases.
     Phrase { phrase_idx: usize, slot_idx: usize },
     /// Place onto a slot in one of the block's bodies.
@@ -43,20 +138,20 @@ pub enum BlockPlaceError {
     FormatMismatch(Box<dyn Any>),
 }
 
-pub trait BlockExt: Block {
-    /// Creates a new block into a recipe view, with default values.
-    fn create() -> Self;
-}
-
 /// A slot for a block to be placed inside of.
 pub struct BlockSlot<BlockType, TDefault: Default>(
-    pub Mutable<Either<Mutable<Box<dyn Block<Output = BlockType>>>, TDefault>>,
+    pub Either<Box<dyn TypedBlock<Output = BlockType>>, TDefault>,
 );
 
 impl<BlockType: 'static, TDefault: Default> BlockSlot<BlockType, TDefault> {
     /// Creates a new slot filled with a default TDefault.
     pub fn new() -> Self {
-        BlockSlot(Mutable::new(Either::Right(TDefault::default())))
+        BlockSlot(Either::Right(TDefault::default()))
+    }
+
+    /// Creates a new slot with a given value.
+    pub fn new_with_value(value: TDefault) -> Self {
+        BlockSlot(Either::Right(value))
     }
 
     /// Attempts to place a block into this slot.
@@ -67,24 +162,23 @@ impl<BlockType: 'static, TDefault: Default> BlockSlot<BlockType, TDefault> {
     /// but [`what`] here should be a `Box<Box<dyn Block<Output = ...>>>`.
     /// Failure to do that will simply return a [`BlockPlaceError::FormatMistach`].
     pub fn try_place(&mut self, what: Box<dyn Any>) -> Result<(), BlockPlaceError> {
-        let mut lock = self.0.lock_mut();
-        if (*lock).is_left() {
+        if self.0.is_left() {
             return Err(BlockPlaceError::NotAvailable(what));
         }
         let block = *what
-            .downcast::<Mutable<Box<dyn Block<Output = BlockType>>>>()
+            .downcast::<Box<dyn TypedBlock<Output = BlockType>>>()
             .map_err(BlockPlaceError::FormatMismatch)?;
-        *lock = Either::Left(block);
+        self.0 = Either::Left(block);
         Ok(())
     }
 
     /// Pops a block from this slot (if there is one).
     /// The slot is left with a default TDefault.
-    pub fn pop(&mut self) -> Option<Mutable<Box<dyn Block<Output = BlockType>>>> {
-        let lock = self.0.lock_ref();
-        if lock.is_left() {
-            drop(lock);
-            self.0.replace(Either::Right(TDefault::default())).left()
+    pub fn pop(&mut self) -> Option<Box<dyn TypedBlock<Output = BlockType>>> {
+        if self.0.is_left() {
+            let mut tmp = Either::Right(TDefault::default());
+            std::mem::swap(&mut self.0, &mut tmp);
+            tmp.left()
         } else {
             None
         }
@@ -95,58 +189,9 @@ impl<T: Clone + Default + 'static> BlockSlot<T, T> {
     /// For a slot that has a default type that's the same for when it's filled with a block,
     /// allow "just getting the value" out of this slot.
     fn just_evaluate(&self) -> T {
-        let lock = self.0.lock_ref();
-        match lock.as_ref() {
-            Either::Left(block_a) => {
-                let lock = block_a.lock_ref();
-                (*lock).evaluate()
-            }
+        match self.0.as_ref() {
+            Either::Left(block_a) => block_a.evaluate(),
             Either::Right(a) => a.clone(),
-        }
-    }
-}
-
-pub mod standard {
-    pub use super::Block;
-    use super::{BlockExt, BlockSlot};
-
-    pub struct Int(pub i32);
-
-    impl Block for Int {
-        type Output = i32;
-
-        fn evaluate(&self) -> Self::Output {
-            self.0
-        }
-    }
-
-    impl BlockExt for Int {
-        fn create() -> Self {
-            return Self(0);
-        }
-    }
-
-    pub struct And {
-        pub slot_a: BlockSlot<i32, i32>,
-        pub slot_b: BlockSlot<i32, i32>,
-    }
-
-    impl Block for And {
-        type Output = i32;
-
-        fn evaluate(&self) -> Self::Output {
-            let a = self.slot_a.just_evaluate();
-            let b = self.slot_b.just_evaluate();
-            a + b
-        }
-    }
-
-    impl BlockExt for And {
-        fn create() -> Self {
-            return And {
-                slot_a: BlockSlot::new(),
-                slot_b: BlockSlot::new(),
-            };
         }
     }
 }
