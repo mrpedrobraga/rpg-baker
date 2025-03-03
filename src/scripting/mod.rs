@@ -1,4 +1,7 @@
-use crate::{format::VariantValue, plugin::BlockContributionRef};
+use crate::{
+    format::{BaseType, VariantValue},
+    plugin::BlockContributionRef,
+};
 use either::Either;
 use futures_signals::signal_vec::MutableVec;
 use serde::{Deserialize, Serialize};
@@ -34,7 +37,7 @@ pub struct BlockScopeDescriptor {
 pub struct BlockInstanceDescriptor {
     pub source: BlockSourceDescriptor,
     #[serde(flatten, serialize_with = "ordered_map")]
-    pub content: HashMap<String, BlockContent>,
+    pub content: HashMap<String, BlockContentDescriptor>,
 }
 
 /// For use with serde's [serialize_with] attribute
@@ -51,13 +54,33 @@ where
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum BlockContent {
+pub enum BlockContentDescriptor {
     Slot(BlockSlotDescriptor),
 }
 
 impl BlockInstanceDescriptor {
+    pub fn new(
+        plugin_id: String,
+        block_id: String,
+        content: HashMap<String, BlockContentDescriptor>,
+    ) -> Self {
+        Self {
+            source: if plugin_id == "builtin" {
+                BlockSourceDescriptor::Builtin(
+                    block_id.parse().expect("Builtin block id not found!!!"),
+                )
+            } else {
+                BlockSourceDescriptor::Plugin(BlockContributionRef {
+                    plugin_id,
+                    block_id,
+                })
+            },
+            content,
+        }
+    }
+
     /// Transforms a block descriptor into a real block that can be executed and whatnot!
-    pub fn reify(&self) -> Result<Box<dyn TypedBlock<Output = i32>>, ReifyError> {
+    pub fn reify(&self) -> Result<Box<dyn TypedBlock>, ReifyError> {
         match &self.source {
             BlockSourceDescriptor::Builtin(builtin_block_ref) => match builtin_block_ref {
                 BuiltinBlockRef::Exit => todo!(),
@@ -197,29 +220,24 @@ pub trait Block {
 
 /// Describes an error when creating a [`Block`] from a [`BlockInstanceDescriptor`].
 #[derive(Debug)]
-pub enum ReifyError {
-    ShouldBeAVariant(BlockSlotPosition),
+pub enum ReifyError<'err> {
+    ShouldBeAVariant(BlockSlotRef<'err>),
+    /// The type provided for whatever filled the slot was incorrect.
+    /// This error also carries the expected type.
+    MismatchedType(BlockSlotRef<'err>, BaseType),
     BlockPlaceError(BlockPlaceError),
-    Child(BlockSlotPosition, Box<ReifyError>),
+    Child(BlockSlotRef<'err>, Box<ReifyError<'err>>),
     MissingField(&'static str),
 }
 
 pub trait TypedBlock {
-    /// The type this block evaluates to.
-    type Output;
-
     /// Evaluates the block and produces a value.
-    fn evaluate(&self) -> Self::Output;
+    fn evaluate(&self) -> VariantValue;
 }
 
 /// Describes the position a slot occupies within its block.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BlockSlotPosition {
-    /// Place onto a slot in one of the block's phrases.
-    Phrase { phrase_idx: usize, slot_idx: usize },
-    /// Place onto a slot in one of the block's bodies.
-    Body { body_idx: usize, idx: usize },
-}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockSlotRef<'a>(&'a str);
 
 /// If a user failed to snap a block to another one,
 /// this enum carries the motive why.
@@ -232,11 +250,9 @@ pub enum BlockPlaceError {
 }
 
 /// A slot for a block to be placed inside of.
-pub struct BlockSlot<BlockType, TDefault: Default>(
-    pub Either<Box<dyn TypedBlock<Output = BlockType>>, TDefault>,
-);
+pub struct BlockSlot<TDefault: Default>(pub Either<Box<dyn TypedBlock>, TDefault>);
 
-impl<BlockType: 'static, TDefault: Default> BlockSlot<BlockType, TDefault> {
+impl<TDefault: Default> BlockSlot<TDefault> {
     /// Creates a new slot filled with a default TDefault.
     pub fn new() -> Self {
         BlockSlot(Either::Right(TDefault::default()))
@@ -259,7 +275,7 @@ impl<BlockType: 'static, TDefault: Default> BlockSlot<BlockType, TDefault> {
             return Err(BlockPlaceError::NotAvailable(what));
         }
         let block = *what
-            .downcast::<Box<dyn TypedBlock<Output = BlockType>>>()
+            .downcast::<Box<dyn TypedBlock>>()
             .map_err(BlockPlaceError::FormatMismatch)?;
         self.0 = Either::Left(block);
         Ok(())
@@ -267,24 +283,13 @@ impl<BlockType: 'static, TDefault: Default> BlockSlot<BlockType, TDefault> {
 
     /// Pops a block from this slot (if there is one).
     /// The slot is left with a default TDefault.
-    pub fn pop(&mut self) -> Option<Box<dyn TypedBlock<Output = BlockType>>> {
+    pub fn pop(&mut self) -> Option<Box<dyn TypedBlock>> {
         if self.0.is_left() {
             let mut tmp = Either::Right(TDefault::default());
             std::mem::swap(&mut self.0, &mut tmp);
             tmp.left()
         } else {
             None
-        }
-    }
-}
-
-impl<T: Clone + Default + 'static> BlockSlot<T, T> {
-    /// For a slot that has a default type that's the same for when it's filled with a block,
-    /// allow "just getting the value" out of this slot.
-    fn just_evaluate(&self) -> T {
-        match self.0.as_ref() {
-            Either::Left(block_a) => block_a.evaluate(),
-            Either::Right(a) => a.clone(),
         }
     }
 }

@@ -48,6 +48,8 @@ impl BaseType {
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", untagged)]
 pub enum VariantValue {
+    /// A value that carries no information.
+    Void,
     /// An integer number (with 32 bits).
     Int(i32),
 }
@@ -56,6 +58,7 @@ impl VariantValue {
     pub fn base_type(&self) -> BaseType {
         match self {
             VariantValue::Int(_) => BaseType::Int,
+            VariantValue::Void => BaseType::Void,
         }
     }
 }
