@@ -29,13 +29,24 @@ impl ScriptRecipe {
 pub struct BlockScopeDescriptor {
     pub blocks: MutableVec<BlockInstanceDescriptor>,
 }
-
 /// Describes a block in a recipe while not running yet.
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct BlockInstanceDescriptor {
     pub source: BlockSourceDescriptor,
-    #[serde(flatten)]
+    #[serde(flatten, serialize_with = "ordered_map")]
     pub content: HashMap<String, BlockContent>,
+}
+
+/// For use with serde's [serialize_with] attribute
+fn ordered_map<S, K: Ord + Serialize, V: Serialize>(
+    value: &HashMap<K, V>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]

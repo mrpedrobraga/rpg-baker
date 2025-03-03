@@ -2,9 +2,7 @@
   "name": "New Project",
   "version": "0.0.0",
   "description": "A new RPG from a handsome game developer!",
-  "authors": [
-    "You"
-  ],
+  "authors": ["You"],
   "dependencies": [],
   "story_definition": {
     "type": "base_type",
@@ -20,7 +18,7 @@
         },
         "b": {
           "source": "builtin:int",
-          "v": 1
+          "v": 2
         }
       }
     ]
