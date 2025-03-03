@@ -2,9 +2,8 @@ use crate::{format::VariantValue, plugin::BlockContributionRef};
 use either::Either;
 use futures_signals::signal_vec::MutableVec;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
+use std::{any::Any, collections::HashMap};
 use strum::{Display, EnumString};
-
 pub mod std_blocks;
 
 /// A Recipe specifying a runtime behaviour (a script).
@@ -25,18 +24,6 @@ impl ScriptRecipe {
     }
 }
 
-/// Describes a builtin block.
-#[derive(Debug, PartialEq, Clone, Eq, EnumString, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum BuiltinBlockRef {
-    /// Exits the current screen.
-    Exit,
-    /// Describes [`standard::Int`].
-    Int,
-    /// Add [`standard::Add`].
-    Add,
-}
-
 /// Describes a block in a recipe while not running yet.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockScopeDescriptor {
@@ -47,12 +34,19 @@ pub struct BlockScopeDescriptor {
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct BlockInstanceDescriptor {
     pub source: BlockSourceDescriptor,
-    pub parts: Vec<BlockPartDescriptor>,
+    #[serde(flatten)]
+    pub content: HashMap<String, BlockContent>,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BlockContent {
+    Slot(BlockSlotDescriptor),
 }
 
 impl BlockInstanceDescriptor {
     /// Transforms a block descriptor into a real block that can be executed and whatnot!
-    pub fn reify(&self) -> Result<Box<dyn TypedBlock<Output = i32>>, FromDescriptorError> {
+    pub fn reify(&self) -> Result<Box<dyn TypedBlock<Output = i32>>, ReifyError> {
         match &self.source {
             BlockSourceDescriptor::Builtin(builtin_block_ref) => match builtin_block_ref {
                 BuiltinBlockRef::Exit => todo!(),
@@ -80,8 +74,8 @@ pub struct BlockPartDescriptor {
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", untagged)]
 pub enum BlockSlotDescriptor {
-    VariantValue(VariantValue),
     Block(BlockInstanceDescriptor),
+    VariantValue(VariantValue),
 }
 
 /// Describes which block to be created for a block descriptor.
@@ -162,6 +156,18 @@ impl<'de> Deserialize<'de> for BlockSourceDescriptor {
     }
 }
 
+/// Describes a builtin block.
+#[derive(Debug, PartialEq, Clone, Eq, EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum BuiltinBlockRef {
+    /// Exits the current screen.
+    Exit,
+    /// Describes [`standard::Int`].
+    Int,
+    /// Add [`standard::Add`].
+    Add,
+}
+
 pub trait Block {
     /// Returns information about what this block does (and what it returns).
     fn description() -> &'static str;
@@ -170,17 +176,18 @@ pub trait Block {
     fn create() -> Self;
 
     /// Creates a block from a [`BlockRecipeDescriptor`].
-    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, FromDescriptorError>
+    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, ReifyError>
     where
         Self: Sized;
 }
 
 /// Describes an error when creating a [`Block`] from a [`BlockInstanceDescriptor`].
 #[derive(Debug)]
-pub enum FromDescriptorError {
+pub enum ReifyError {
     ShouldBeAVariant(BlockSlotPosition),
     BlockPlaceError(BlockPlaceError),
-    Child(BlockSlotPosition, Box<FromDescriptorError>),
+    Child(BlockSlotPosition, Box<ReifyError>),
+    MissingField(&'static str),
 }
 
 pub trait TypedBlock {

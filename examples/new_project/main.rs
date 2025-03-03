@@ -3,11 +3,11 @@ use rpg_baker::{
     format::VariantValue,
     project::{Project, resource::ResourceLoadError},
     scripting::{
-        BlockInstanceDescriptor, BlockPartDescriptor, BlockScopeDescriptor, BlockSlotDescriptor,
+        BlockContent, BlockInstanceDescriptor, BlockScopeDescriptor, BlockSlotDescriptor,
         BlockSourceDescriptor, ScriptRecipe,
     },
 };
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 fn main() -> Result<(), ResourceLoadError> {
     let path = Path::new("./examples/test_project").to_path_buf();
@@ -15,29 +15,32 @@ fn main() -> Result<(), ResourceLoadError> {
 
     let add_two_numbers = BlockInstanceDescriptor {
         source: BlockSourceDescriptor::Builtin(rpg_baker::scripting::BuiltinBlockRef::Add),
-        parts: vec![BlockPartDescriptor {
-            phrase: vec![
-                BlockSlotDescriptor::Block(BlockInstanceDescriptor {
+        content: HashMap::from([
+            (
+                String::from("a"),
+                BlockContent::Slot(BlockSlotDescriptor::Block(BlockInstanceDescriptor {
                     source: BlockSourceDescriptor::Builtin(
                         rpg_baker::scripting::BuiltinBlockRef::Int,
                     ),
-                    parts: vec![BlockPartDescriptor {
-                        phrase: vec![BlockSlotDescriptor::VariantValue(VariantValue::Int(1))],
-                        body: None,
-                    }],
-                }),
-                BlockSlotDescriptor::Block(BlockInstanceDescriptor {
+                    content: HashMap::from([(
+                        String::from("v"),
+                        BlockContent::Slot(BlockSlotDescriptor::VariantValue(VariantValue::Int(1))),
+                    )]),
+                })),
+            ),
+            (
+                String::from("b"),
+                BlockContent::Slot(BlockSlotDescriptor::Block(BlockInstanceDescriptor {
                     source: BlockSourceDescriptor::Builtin(
                         rpg_baker::scripting::BuiltinBlockRef::Int,
                     ),
-                    parts: vec![BlockPartDescriptor {
-                        phrase: vec![BlockSlotDescriptor::VariantValue(VariantValue::Int(2))],
-                        body: None,
-                    }],
-                }),
-            ],
-            body: None,
-        }],
+                    content: HashMap::from([(
+                        String::from("v"),
+                        BlockContent::Slot(BlockSlotDescriptor::VariantValue(VariantValue::Int(1))),
+                    )]),
+                })),
+            ),
+        ]),
     };
 
     project.startup_routine = ScriptRecipe {

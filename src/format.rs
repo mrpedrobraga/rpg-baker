@@ -46,7 +46,7 @@ impl BaseType {
 
 /// Describes a value.
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "t", content = "v")]
+#[serde(rename_all = "snake_case", untagged)]
 pub enum VariantValue {
     /// An integer number (with 32 bits).
     Int(i32),

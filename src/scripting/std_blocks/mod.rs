@@ -2,8 +2,7 @@
 
 pub use super::TypedBlock;
 use super::{
-    Block, BlockInstanceDescriptor, BlockSlot, BlockSlotDescriptor, BlockSlotPosition,
-    FromDescriptorError,
+    Block, BlockInstanceDescriptor, BlockSlot, BlockSlotDescriptor, BlockSlotPosition, ReifyError,
 };
 use crate::format::VariantValue;
 
@@ -27,28 +26,27 @@ impl Block for Int {
         return Self(0);
     }
 
-    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, FromDescriptorError> {
+    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, ReifyError> {
         let mut block = Self::create();
         let input = descriptor
-            .parts
-            .get(0)
-            .expect("Failed to get part 0!")
-            .phrase
-            .get(0)
-            .expect("Failed to get slot 0!");
+            .content
+            .get("v")
+            .ok_or(ReifyError::MissingField("v"))?;
         match input {
-            BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
-                VariantValue::Int(a) => {
-                    block.0 = *a;
-                    Ok(block)
-                }
-            },
-            _ => Err(FromDescriptorError::ShouldBeAVariant(
-                super::BlockSlotPosition::Phrase {
-                    phrase_idx: 0,
-                    slot_idx: 0,
+            super::BlockContent::Slot(block_slot_descriptor) => match block_slot_descriptor {
+                BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
+                    VariantValue::Int(a) => {
+                        block.0 = *a;
+                        Ok(block)
+                    }
                 },
-            )),
+                _ => Err(ReifyError::ShouldBeAVariant(
+                    super::BlockSlotPosition::Phrase {
+                        phrase_idx: 0,
+                        slot_idx: 0,
+                    },
+                )),
+            },
         }
     }
 }
@@ -81,54 +79,59 @@ impl Block for Add {
         };
     }
 
-    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, FromDescriptorError> {
+    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, ReifyError> {
         let mut block = Self::create();
-        let part = &descriptor
-            .parts
-            .get(0)
-            .expect("Failed to get part 0!")
-            .phrase;
-        let a = part.get(0).expect("Failed to get slot 0!");
-        let b = part.get(1).expect("Failed to get slot 1!");
+        let a = descriptor
+            .content
+            .get("a")
+            .ok_or(ReifyError::MissingField("a"))?;
+        let b = descriptor
+            .content
+            .get("b")
+            .ok_or(ReifyError::MissingField("b"))?;
         let slot_a: BlockSlot<i32, i32> = match a {
-            BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
-                VariantValue::Int(a) => BlockSlot::new_with_value(*a),
+            super::BlockContent::Slot(block_slot_descriptor) => match block_slot_descriptor {
+                BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
+                    VariantValue::Int(a) => BlockSlot::new_with_value(*a),
+                },
+                BlockSlotDescriptor::Block(b) => {
+                    let block = b.reify().map_err(|e| {
+                        ReifyError::Child(
+                            BlockSlotPosition::Phrase {
+                                phrase_idx: 0,
+                                slot_idx: 0,
+                            },
+                            Box::new(e),
+                        )
+                    })?;
+                    let mut slot = BlockSlot::new();
+                    slot.try_place(Box::new(block))
+                        .map_err(ReifyError::BlockPlaceError)?;
+                    slot
+                }
             },
-            BlockSlotDescriptor::Block(b) => {
-                let block = b.reify().map_err(|e| {
-                    FromDescriptorError::Child(
-                        BlockSlotPosition::Phrase {
-                            phrase_idx: 0,
-                            slot_idx: 0,
-                        },
-                        Box::new(e),
-                    )
-                })?;
-                let mut slot = BlockSlot::new();
-                slot.try_place(Box::new(block))
-                    .map_err(FromDescriptorError::BlockPlaceError)?;
-                slot
-            }
         };
         let slot_b: BlockSlot<i32, i32> = match b {
-            BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
-                VariantValue::Int(a) => BlockSlot::new_with_value(*a),
+            super::BlockContent::Slot(block_slot_descriptor) => match block_slot_descriptor {
+                BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
+                    VariantValue::Int(a) => BlockSlot::new_with_value(*a),
+                },
+                BlockSlotDescriptor::Block(b) => {
+                    let block = b.reify().map_err(|e| {
+                        ReifyError::Child(
+                            BlockSlotPosition::Phrase {
+                                phrase_idx: 0,
+                                slot_idx: 1,
+                            },
+                            Box::new(e),
+                        )
+                    })?;
+                    let mut slot = BlockSlot::new();
+                    slot.try_place(Box::new(block))
+                        .map_err(ReifyError::BlockPlaceError)?;
+                    slot
+                }
             },
-            BlockSlotDescriptor::Block(b) => {
-                let block = b.reify().map_err(|e| {
-                    FromDescriptorError::Child(
-                        BlockSlotPosition::Phrase {
-                            phrase_idx: 0,
-                            slot_idx: 1,
-                        },
-                        Box::new(e),
-                    )
-                })?;
-                let mut slot = BlockSlot::new();
-                slot.try_place(Box::new(block))
-                    .map_err(FromDescriptorError::BlockPlaceError)?;
-                slot
-            }
         };
         block.slot_a = slot_a;
         block.slot_b = slot_b;

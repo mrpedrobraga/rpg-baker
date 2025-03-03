@@ -14,38 +14,14 @@
     "blocks": [
       {
         "source": "builtin:add",
-        "parts": [
-          {
-            "phrase": [
-              {
-                "source": "builtin:int",
-                "parts": [
-                  {
-                    "phrase": [
-                      {
-                        "t": "int",
-                        "v": 1
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "source": "builtin:int",
-                "parts": [
-                  {
-                    "phrase": [
-                      {
-                        "t": "int",
-                        "v": 2
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "a": {
+          "source": "builtin:int",
+          "v": 1
+        },
+        "b": {
+          "source": "builtin:int",
+          "v": 1
+        }
       }
     ]
   }
