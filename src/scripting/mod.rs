@@ -7,6 +7,7 @@ use futures_signals::signal_vec::MutableVec;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::HashMap};
 use strum::{Display, EnumString};
+pub mod helpers;
 pub mod std_blocks;
 
 /// A Recipe specifying a runtime behaviour (a script).
@@ -96,7 +97,7 @@ impl BlockInstanceDescriptor {
 /// Describes a part of a block, which contains a phrase and a body.
 ///
 /// For example, block that reads `if <cond> then { block } else { block2 }` has two parts,
-/// the "if" and the "else." The phrases of the parts are the "if <cond> then" and "else",
+/// the "if" and the "else." The phrases of the parts are the "if (cond) then" and "else",
 /// and the blocks are the "{ block }" and "{block2}".
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct BlockPartDescriptor {
@@ -197,11 +198,11 @@ impl<'de> Deserialize<'de> for BlockSourceDescriptor {
 pub enum BuiltinBlockRef {
     /// Exits the current screen.
     Exit,
-    /// Describes [`standard::Int`].
+    /// Describes [`std_blocks::Int`].
     Int,
-    /// Describes [`standard::Add`].
+    /// Describes [`std_blocks::Add`].
     Add,
-    /// Describes [`standard::Log`].
+    /// Describes [`std_blocks::Log`].
     Log,
 }
 
@@ -212,7 +213,7 @@ pub trait Block {
     /// Creates a new block with default values.
     fn create() -> Self;
 
-    /// Creates a block from a [`BlockRecipeDescriptor`].
+    /// Creates a block from a [`BlockInstanceDescriptor`].
     fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, ReifyError>
     where
         Self: Sized;
@@ -250,16 +251,16 @@ pub enum BlockPlaceError {
 }
 
 /// A slot for a block to be placed inside of.
-pub struct BlockSlot<TDefault: Default>(pub Either<Box<dyn TypedBlock>, TDefault>);
+pub struct BlockSlot(pub Either<Box<dyn TypedBlock>, VariantValue>);
 
-impl<TDefault: Default> BlockSlot<TDefault> {
+impl BlockSlot {
     /// Creates a new slot filled with a default TDefault.
     pub fn new() -> Self {
-        BlockSlot(Either::Right(TDefault::default()))
+        BlockSlot(Either::Right(VariantValue::Void))
     }
 
     /// Creates a new slot with a given value.
-    pub fn new_with_value(value: TDefault) -> Self {
+    pub fn new_with_value(value: VariantValue) -> Self {
         BlockSlot(Either::Right(value))
     }
 
@@ -268,8 +269,8 @@ impl<TDefault: Default> BlockSlot<TDefault> {
     /// does not match the type of this slot.
     ///
     /// It's not possible to enforce this in Rust,
-    /// but [`what`] here should be a `Box<Box<dyn Block<Output = ...>>>`.
-    /// Failure to do that will simply return a [`BlockPlaceError::FormatMistach`].
+    /// but `what` here should be a `Box<Box<dyn Block<Output = ...>>>`.
+    /// Failure to do that will simply return a [`BlockPlaceError::FormatMismatch`].
     pub fn try_place(&mut self, what: Box<dyn Any>) -> Result<(), BlockPlaceError> {
         if self.0.is_left() {
             return Err(BlockPlaceError::NotAvailable(what));
@@ -285,11 +286,19 @@ impl<TDefault: Default> BlockSlot<TDefault> {
     /// The slot is left with a default TDefault.
     pub fn pop(&mut self) -> Option<Box<dyn TypedBlock>> {
         if self.0.is_left() {
-            let mut tmp = Either::Right(TDefault::default());
+            let mut tmp = Either::Right(VariantValue::Void);
             std::mem::swap(&mut self.0, &mut tmp);
             tmp.left()
         } else {
             None
+        }
+    }
+
+    /// "Just evaluates" the content of this slot.
+    pub fn just_evaluate(&self) -> VariantValue {
+        match &self.0 {
+            Either::Left(block) => block.evaluate(),
+            Either::Right(value) => value.clone(),
         }
     }
 }

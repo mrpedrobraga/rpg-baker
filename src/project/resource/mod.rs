@@ -2,7 +2,7 @@
 //! describing how something in the game will look or behave.
 //!
 //! There are many built in resources: Rooms, Items, Tilesets, Images,
-//! but you can also create your own using [`Type`]s.
+//! but you can also create your own definitions.
 
 use super::{object::ObjectRecipe, room::Room};
 use crate::format::FormatDefinition;
