@@ -5,13 +5,48 @@
   "authors": [
     "You"
   ],
+  "dependencies": [],
   "story_definition": {
     "type": "base_type",
     "content": "void"
   },
   "startup_routine": {
-    "content": {
-      "blocks": []
-    }
+    "blocks": [
+      {
+        "source": "builtin:add",
+        "parts": [
+          {
+            "phrase": [
+              {
+                "source": "builtin:int",
+                "parts": [
+                  {
+                    "phrase": [
+                      {
+                        "t": "int",
+                        "v": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "source": "builtin:int",
+                "parts": [
+                  {
+                    "phrase": [
+                      {
+                        "t": "int",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

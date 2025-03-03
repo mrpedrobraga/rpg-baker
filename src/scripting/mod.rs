@@ -3,20 +3,22 @@ use either::Either;
 use futures_signals::signal_vec::MutableVec;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use strum::{Display, EnumString};
 
 pub mod std_blocks;
 
 /// A Recipe specifying a runtime behaviour (a script).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptRecipe {
-    pub content: BlockScopeDescriptor,
+    #[serde(flatten)]
+    pub blocks: BlockScopeDescriptor,
 }
 
 impl ScriptRecipe {
     /// Returns a new, empty recipe.
     pub fn new() -> Self {
         ScriptRecipe {
-            content: BlockScopeDescriptor {
+            blocks: BlockScopeDescriptor {
                 blocks: MutableVec::new(),
             },
         }
@@ -24,8 +26,8 @@ impl ScriptRecipe {
 }
 
 /// Describes a builtin block.
-#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, PartialEq, Clone, Eq, EnumString, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum BuiltinBlockRef {
     /// Exits the current screen.
     Exit,
@@ -83,11 +85,81 @@ pub enum BlockSlotDescriptor {
 }
 
 /// Describes which block to be created for a block descriptor.
-#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase", tag = "plugin", content = "id")]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum BlockSourceDescriptor {
     Plugin(BlockContributionRef),
     Builtin(BuiltinBlockRef),
+}
+
+impl Serialize for BlockSourceDescriptor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            BlockSourceDescriptor::Plugin(BlockContributionRef {
+                plugin_id,
+                block_id,
+            }) => {
+                let plugin_id = plugin_id;
+                serializer.serialize_str(&format!("{}:{}", plugin_id, block_id))
+            }
+            BlockSourceDescriptor::Builtin(builtin) => {
+                let block_id = builtin.to_string();
+                serializer.serialize_str(&format!("builtin:{}", block_id))
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for BlockSourceDescriptor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BlockSourceDescriptorVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for BlockSourceDescriptorVisitor {
+            type Value = BlockSourceDescriptor;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str(
+                    "a string in the format `<plugin_id>:<block_id>` or `builtin:<block_id>`",
+                )
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let parts: Vec<&str> = value.split(':').collect();
+                if parts.len() != 2 {
+                    return Err(E::custom("expected a single ':' separator"));
+                }
+
+                match parts[0] {
+                    "builtin" => {
+                        // Use the existing Deserialize implementation for BuiltinBlockRef
+                        let builtin_block_ref = parts[1]
+                            .parse::<BuiltinBlockRef>()
+                            .map_err(|_| E::custom("unknown builtin block"))?;
+
+                        Ok(BlockSourceDescriptor::Builtin(builtin_block_ref))
+                    }
+                    plugin_id => {
+                        let block_id = parts[1].to_string();
+                        let plugin_id = plugin_id.to_string();
+                        Ok(BlockSourceDescriptor::Plugin(BlockContributionRef {
+                            plugin_id,
+                            block_id,
+                        }))
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(BlockSourceDescriptorVisitor)
+    }
 }
 
 pub trait Block {

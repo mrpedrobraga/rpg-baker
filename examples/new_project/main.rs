@@ -11,9 +11,9 @@ use std::path::Path;
 
 fn main() -> Result<(), ResourceLoadError> {
     let path = Path::new("./examples/test_project").to_path_buf();
-    let project = Project::new(path).expect("Failed to create new project.");
+    let mut project = Project::new(path).expect("Failed to create new project.");
 
-    let test_block = BlockInstanceDescriptor {
+    let add_two_numbers = BlockInstanceDescriptor {
         source: BlockSourceDescriptor::Builtin(rpg_baker::scripting::BuiltinBlockRef::Add),
         parts: vec![BlockPartDescriptor {
             phrase: vec![
@@ -40,27 +40,13 @@ fn main() -> Result<(), ResourceLoadError> {
         }],
     };
 
-    {
-        let text = serde_json::to_string_pretty(&test_block);
-        println!("{}", text.expect("Failed to serialize!"));
-
-        let block = test_block.clone().reify();
-
-        match block {
-            Ok(block) => {
-                dbg!(block.evaluate());
-            }
-            Err(e) => {
-                eprintln!("{:?}", e);
-            }
-        }
-    }
-
-    let startup_sequence = ScriptRecipe {
-        content: BlockScopeDescriptor {
-            blocks: MutableVec::new_with_values(vec![test_block]),
+    project.startup_routine = ScriptRecipe {
+        blocks: BlockScopeDescriptor {
+            blocks: MutableVec::new_with_values(vec![add_two_numbers]),
         },
     };
+
+    project.save().expect("Failed to save!");
 
     Ok(())
 }

@@ -40,6 +40,6 @@ pub struct PluginContributions {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockContributionRef {
-    pub plugin_id: Option<String>,
+    pub plugin_id: String,
     pub block_id: String,
 }

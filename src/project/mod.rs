@@ -1,11 +1,13 @@
 pub mod object;
 pub mod resource;
 pub mod room;
+use ordermap::OrderSet;
 use resource::{ResourceDatabase, ResourceLoadError, ResourceSaveError};
-use semver::Version;
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
 use std::path::PathBuf;
+use url::Url;
 
 use crate::{
     format::{BaseType, Format},
@@ -26,12 +28,15 @@ pub struct Project {
     pub authors: Vec<String>,
     #[serde(skip)]
     pub resource_database: ResourceDatabase,
+
+    /* Plugins and Dependencies */
+    dependencies: OrderSet<ProjectDependency>,
     #[serde(skip)]
     pub plugin_database: PluginDatabase,
 
     /* Game Stuff */
     story_definition: Format,
-    startup_routine: ScriptRecipe,
+    pub startup_routine: ScriptRecipe,
 }
 
 impl Project {
@@ -47,6 +52,7 @@ impl Project {
             plugin_database: PluginDatabase::default(),
             story_definition: Format::BaseType(BaseType::Void),
             startup_routine: ScriptRecipe::new(),
+            dependencies: OrderSet::new(),
         };
 
         project._save_as(path)?;
@@ -82,4 +88,23 @@ impl Project {
         let path = self.base_path.clone();
         self.save_as(path)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[serde(rename_all = "snake_case", tag = "source")]
+pub enum ProjectDependency {
+    Marketplace(MarketplaceDependency),
+    Git(GitDependency),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct MarketplaceDependency {
+    marketplace_id: String,
+    version_requirement: VersionReq,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct GitDependency {
+    repository_url: Url,
+    commit_hash: String,
 }
