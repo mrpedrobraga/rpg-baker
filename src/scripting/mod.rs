@@ -63,6 +63,7 @@ impl BlockInstanceDescriptor {
                 BuiltinBlockRef::Exit => todo!(),
                 BuiltinBlockRef::Int => Ok(Box::new(std_blocks::Int::from_descriptor(&self)?)),
                 BuiltinBlockRef::Add => Ok(Box::new(std_blocks::Add::from_descriptor(&self)?)),
+                BuiltinBlockRef::Log => Ok(Box::new(std_blocks::Log::from_descriptor(&self)?)),
             },
             BlockSourceDescriptor::Plugin(_) => unimplemented!(),
         }
@@ -175,8 +176,10 @@ pub enum BuiltinBlockRef {
     Exit,
     /// Describes [`standard::Int`].
     Int,
-    /// Add [`standard::Add`].
+    /// Describes [`standard::Add`].
     Add,
+    /// Describes [`standard::Log`].
+    Log,
 }
 
 pub trait Block {

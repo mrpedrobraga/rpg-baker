@@ -1,8 +1,10 @@
 pub mod object;
 pub mod resource;
 pub mod room;
+pub mod runtime;
 use ordermap::OrderSet;
 use resource::{ResourceDatabase, ResourceLoadError, ResourceSaveError};
+use runtime::Game;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
@@ -83,10 +85,18 @@ impl Project {
         Ok(())
     }
 
+    /// Saves a project to the directory it's already saved in.
     #[inline]
     pub fn save(&mut self) -> Result<(), ResourceSaveError> {
         let path = self.base_path.clone();
         self.save_as(path)
+    }
+
+    /// Runs a game baked from this project from the beggining
+    pub fn run_from_start(&self) -> Game {
+        let mut game = Game::from_project(self);
+        game.do_runtime_routine();
+        game
     }
 }
 

@@ -138,3 +138,58 @@ impl Block for Add {
         Ok(block)
     }
 }
+
+/// Logs a single value to the standard output!
+pub struct Log(BlockSlot<i32, i32>);
+
+impl TypedBlock for Log {
+    type Output = i32;
+
+    fn evaluate(&self) -> Self::Output {
+        let inner = self.0.just_evaluate();
+        println!("LOG {}", inner);
+        inner
+    }
+}
+
+impl Block for Log {
+    fn description() -> &'static str {
+        "Evaluates to the number that you input here."
+    }
+
+    fn create() -> Self {
+        return Self(BlockSlot::new());
+    }
+
+    fn from_descriptor(descriptor: &BlockInstanceDescriptor) -> Result<Self, ReifyError> {
+        let mut block = Self::create();
+        let slot = descriptor
+            .content
+            .get("what")
+            .ok_or(ReifyError::MissingField("what"))?;
+        let slot: BlockSlot<i32, i32> = match slot {
+            super::BlockContent::Slot(block_slot_descriptor) => match block_slot_descriptor {
+                BlockSlotDescriptor::VariantValue(variant_value) => match variant_value {
+                    VariantValue::Int(a) => BlockSlot::new_with_value(*a),
+                },
+                BlockSlotDescriptor::Block(b) => {
+                    let block = b.reify().map_err(|e| {
+                        ReifyError::Child(
+                            BlockSlotPosition::Phrase {
+                                phrase_idx: 0,
+                                slot_idx: 0,
+                            },
+                            Box::new(e),
+                        )
+                    })?;
+                    let mut slot = BlockSlot::new();
+                    slot.try_place(Box::new(block))
+                        .map_err(ReifyError::BlockPlaceError)?;
+                    slot
+                }
+            },
+        };
+        block.0 = slot;
+        Ok(block)
+    }
+}

@@ -11,14 +11,17 @@
   "startup_routine": {
     "blocks": [
       {
-        "source": "builtin:add",
-        "a": {
-          "source": "builtin:int",
-          "v": 1
-        },
-        "b": {
-          "source": "builtin:int",
-          "v": 2
+        "source": "builtin:log",
+        "what": {
+          "source": "builtin:add",
+          "a": {
+            "source": "builtin:int",
+            "v": 1
+          },
+          "b": {
+            "source": "builtin:int",
+            "v": 2
+          }
         }
       }
     ]
