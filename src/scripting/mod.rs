@@ -6,7 +6,7 @@ use either::Either;
 use futures_signals::signal_vec::MutableVec;
 use serde::{Deserialize, Serialize};
 use std::{any::Any, collections::HashMap};
-use strum::{Display, EnumString};
+use std_blocks::BuiltinBlockRef;
 pub mod helpers;
 pub mod std_blocks;
 
@@ -84,7 +84,6 @@ impl BlockInstanceDescriptor {
     pub fn reify(&self) -> Result<Box<dyn TypedBlock>, ReifyError> {
         match &self.source {
             BlockSourceDescriptor::Builtin(builtin_block_ref) => match builtin_block_ref {
-                BuiltinBlockRef::Exit => todo!(),
                 BuiltinBlockRef::Int => Ok(Box::new(std_blocks::Int::from_descriptor(&self)?)),
                 BuiltinBlockRef::Add => Ok(Box::new(std_blocks::Add::from_descriptor(&self)?)),
                 BuiltinBlockRef::Log => Ok(Box::new(std_blocks::Log::from_descriptor(&self)?)),
@@ -190,20 +189,6 @@ impl<'de> Deserialize<'de> for BlockSourceDescriptor {
 
         deserializer.deserialize_str(BlockSourceDescriptorVisitor)
     }
-}
-
-/// Describes a builtin block.
-#[derive(Debug, PartialEq, Clone, Eq, EnumString, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum BuiltinBlockRef {
-    /// Exits the current screen.
-    Exit,
-    /// Describes [`std_blocks::Int`].
-    Int,
-    /// Describes [`std_blocks::Add`].
-    Add,
-    /// Describes [`std_blocks::Log`].
-    Log,
 }
 
 pub trait Block {

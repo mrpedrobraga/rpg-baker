@@ -15,7 +15,7 @@ fn main() -> Result<(), ResourceLoadError> {
     let path = Path::new("./examples/test_project").to_path_buf();
     let mut project = Project::new(path).expect("Failed to create new project.");
 
-    let add_two_numbers = get!( BlockInstanceDescriptor => {
+    let add_two_numbers = get!(BlockInstanceDescriptor => {
         "source" : "builtin:log",
         "what" : {
             "source": "builtin:add",

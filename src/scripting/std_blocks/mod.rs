@@ -5,6 +5,24 @@ use super::{
 };
 use crate::{block_define, format::VariantValue};
 
+macro_rules! StdBlocks {
+    ($($block_name:ident),*) => {
+        /// Describes a builtin block.
+        #[derive(Debug, PartialEq, Clone, Eq, strum::EnumString, strum::Display)]
+        #[strum(serialize_all = "snake_case")]
+        pub enum BuiltinBlockRef {
+            $(
+                #[doc = concat!("Describes the [`", stringify!($block_name) ,"`] block.")]
+                $block_name
+            ),*
+        }
+    };
+}
+
+StdBlocks! {
+    Int, Add, Log
+}
+
 block_define! {
     Int { v },
     description: "Returns an integer.",
