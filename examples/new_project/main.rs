@@ -16,18 +16,7 @@ fn main() -> Result<(), ResourceLoadError> {
     let mut project = Project::new(path).expect("Failed to create new project.");
 
     let add_two_numbers = make!(BlockInstanceDescriptor => {
-        "source" : "builtin:log",
-        "what" : {
-            "source": "builtin:add",
-            "a" : {
-                "source" : "builtin:int",
-                "v" : 1
-            },
-            "b" : {
-                "source" : "builtin:int",
-                "v" : 2
-            }
-        }
+        "source" : "builtin:change_screen",
     })
     .unwrap();
 

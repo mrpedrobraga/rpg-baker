@@ -109,6 +109,9 @@ impl BlockInstanceDescriptor {
                 BuiltinBlockRef::Int => Ok(Box::new(std_blocks::Int::from_descriptor(&self)?)),
                 BuiltinBlockRef::Add => Ok(Box::new(std_blocks::Add::from_descriptor(&self)?)),
                 BuiltinBlockRef::Log => Ok(Box::new(std_blocks::Log::from_descriptor(&self)?)),
+                BuiltinBlockRef::ChangeScreen => {
+                    Ok(Box::new(std_blocks::ChangeScreen::from_descriptor(&self)?))
+                }
             },
             BlockSourceDescriptor::Plugin(_) => unimplemented!(),
         }

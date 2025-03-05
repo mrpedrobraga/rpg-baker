@@ -20,7 +20,7 @@ macro_rules! StdBlocks {
 }
 
 StdBlocks! {
-    Int, Add, Log
+    Int, Add, Log, ChangeScreen
 }
 
 block_define! {
@@ -52,6 +52,17 @@ block_define! {
     description: "Logs a value to the standard output.",
     evaluate: |block: &Log| {
         println!("LOG {:?}", block.what.just_evaluate());
+        VariantValue::Void
+    }
+}
+
+block_define! {
+    ChangeScreen { },
+    description: r#"Changes the current screen to {new_screen}.
+
+This also acts as an implicit return that skips anything that happens on this frame until the screen changes."#,
+    evaluate: |_: &ChangeScreen| {
+        println!("Screen was changed???");
         VariantValue::Void
     }
 }
