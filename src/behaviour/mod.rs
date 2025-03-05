@@ -1,3 +1,8 @@
+//! # Behaviours & Scripting
+//!
+//! A behaviour encapsulates how a "thing" in RPG Baker responds to events such as it being created, destroy, or a key being pressed.
+//! Behaviours also describes internal properties of an entity, as well as how it can interact with external entities.
+
 use crate::{
     format::{BaseType, VariantValue},
     plugin::BlockContributionRef,

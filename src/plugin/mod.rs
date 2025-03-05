@@ -1,3 +1,8 @@
+//! # Plugin
+//!
+//! A third-party source of [`PluginContribution`]s: assets, recipes, behaviours, tools and
+//! possibly even custom Rust code.
+
 use serde::{Deserialize, Serialize};
 
 /// Stores the loaded references to plugins (sourced from a plugin folder)
