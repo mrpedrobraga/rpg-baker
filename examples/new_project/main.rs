@@ -1,11 +1,11 @@
 use futures_signals::signal_vec::MutableVec;
 use rpg_baker::{
+    behaviour::{BehaviourDescriptor, BlockInstanceDescriptor, BlockScopeDescriptor},
     project::{Project, resource::ResourceLoadError},
-    scripting::{BlockInstanceDescriptor, BlockScopeDescriptor, ScriptRecipe},
 };
 use std::path::Path;
 
-macro_rules! get {
+macro_rules! make {
     ($type:ty => $content:tt) => {
         serde_json::from_value::<$type>(serde_json::json!($content))
     };
@@ -15,7 +15,7 @@ fn main() -> Result<(), ResourceLoadError> {
     let path = Path::new("./examples/test_project").to_path_buf();
     let mut project = Project::new(path).expect("Failed to create new project.");
 
-    let add_two_numbers = get!(BlockInstanceDescriptor => {
+    let add_two_numbers = make!(BlockInstanceDescriptor => {
         "source" : "builtin:log",
         "what" : {
             "source": "builtin:add",
@@ -31,7 +31,7 @@ fn main() -> Result<(), ResourceLoadError> {
     })
     .unwrap();
 
-    project.startup_routine = ScriptRecipe {
+    project.startup_behaviour = BehaviourDescriptor {
         blocks: BlockScopeDescriptor {
             blocks: MutableVec::new_with_values(vec![add_two_numbers]),
         },

@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use url::Url;
 
 use crate::{
+    behaviour::BehaviourDescriptor,
     format::{BaseType, Format},
     plugin::PluginDatabase,
-    scripting::ScriptRecipe,
 };
 
 /// An RPG Baker project, assumed to be saved on disk to a folder.
@@ -38,7 +38,7 @@ pub struct Project {
 
     /* Game Stuff */
     story_definition: Format,
-    pub startup_routine: ScriptRecipe,
+    pub startup_behaviour: BehaviourDescriptor,
 }
 
 impl Project {
@@ -53,7 +53,7 @@ impl Project {
             resource_database: ResourceDatabase::default(),
             plugin_database: PluginDatabase::default(),
             story_definition: Format::BaseType(BaseType::Void),
-            startup_routine: ScriptRecipe::new(),
+            startup_behaviour: BehaviourDescriptor::new(),
             dependencies: OrderSet::new(),
         };
 
@@ -92,10 +92,11 @@ impl Project {
         self.save_as(path)
     }
 
-    /// Runs a game baked from this project from the beggining
+    /// Runs a game baked from this project from the "beggining," that is,
+    /// it runs an empty game then calls the `game_started` event.
     pub fn run_from_start(&self) -> Game {
         let mut game = Game::from_project(self);
-        game.do_runtime_routine();
+        game.game_started();
         game
     }
 }

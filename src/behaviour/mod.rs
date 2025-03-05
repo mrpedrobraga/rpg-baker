@@ -12,19 +12,41 @@ pub mod std_blocks;
 
 /// A Recipe specifying a runtime behaviour (a script).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScriptRecipe {
+pub struct BehaviourDescriptor {
     #[serde(flatten)]
     pub blocks: BlockScopeDescriptor,
 }
 
-impl ScriptRecipe {
+impl BehaviourDescriptor {
     /// Returns a new, empty recipe.
     pub fn new() -> Self {
-        ScriptRecipe {
+        BehaviourDescriptor {
             blocks: BlockScopeDescriptor {
                 blocks: MutableVec::new(),
             },
         }
+    }
+
+    /// Creates an instance of a behaviour with its own running state and data.
+    pub fn reify(&self) -> BehaviourInstance {
+        let routine = self.blocks.blocks.lock_ref();
+        let block = routine.get(0).unwrap().reify().unwrap();
+
+        BehaviourInstance {
+            descriptor: self,
+            block,
+        }
+    }
+}
+
+pub struct BehaviourInstance<'game> {
+    pub descriptor: &'game BehaviourDescriptor,
+    pub block: Box<dyn TypedBlock>,
+}
+
+impl<'game> BehaviourInstance<'game> {
+    pub fn execute(&self) {
+        self.block.evaluate();
     }
 }
 

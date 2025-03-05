@@ -1,27 +1,29 @@
 use super::Project;
+use crate::screen::ScreenInstance;
 
 /// A game that is currently running.
 ///
 /// A [`Project`] is like a recipe for a [`Game`]:
 /// A Game instantiates all the markers and descriptors of a project
 /// into an interactive form.
-pub struct Game<'runtime> {
-    project: &'runtime Project,
+pub struct Game<'game> {
+    pub project: &'game Project,
+    pub current_scene: Option<ScreenInstance<'game>>,
 }
 
-impl<'runtime> Game<'runtime> {
+impl<'game> Game<'game> {
+    /// Reifies a game from a project. This only _creates_
+    /// an instace of a game with appropriate handles to resources, etc,
+    /// it doesn't make the game start playing.
     pub fn from_project(project: &Project) -> Game {
-        Game { project }
+        Game {
+            project,
+            current_scene: None,
+        }
     }
 
-    pub fn do_runtime_routine(&mut self) {
-        let routine = self.project.startup_routine.blocks.blocks.lock_ref();
-
-        // TODO: Replace this with a dedicated function somewhere else
-        // for running routines in different contexts (with proper flow control).
-        for entry in routine.iter() {
-            let block = entry.reify().expect("Failure reifying!");
-            let _result = block.evaluate();
-        }
+    /// Calls the project's startup behaviour to set up and finally begin to play the game.
+    pub fn game_started(&mut self) {
+        self.project.startup_behaviour.reify().execute();
     }
 }

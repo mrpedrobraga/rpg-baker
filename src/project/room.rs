@@ -1,10 +1,14 @@
-use super::object::ObjectInstance;
+use super::object::{ObjectInstance, ObjectInstanceDescriptor};
 use serde::{Deserialize, Serialize};
 
-/// A Room in the project, it is a place where
-/// a player can walk around, interact with stuff, etc.
+/// Describes a Room in the project, a container for
+/// layers that themselves contain tiles, objects,
+/// events, colliders, hazards and more.
+///
+/// Most games will use rooms in some regard,
+/// from RPGs to platformers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Room {
+pub struct RoomDescriptor {
     name: String,
     description: Option<String>,
     layers: Vec<RoomLayer>,
@@ -28,10 +32,21 @@ pub enum RoomLayerContent {
     /// This layer contains tiles chosen from a TileMap;
     Tiles,
     /// This layer contains many object instances;
-    Objects(ObjectLayer),
+    Objects(ObjectLayerDescriptor),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ObjectLayer {
-    objects: Vec<ObjectInstance>,
+pub struct ObjectLayerDescriptor {
+    objects: Vec<ObjectInstanceDescriptor>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RoomInstance<'game> {
+    descriptor: &'game RoomDescriptor,
+    layers: Vec<RoomLayer>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ObjectLayerInstance<'game> {
+    objects: Vec<ObjectInstance<'game>>,
 }

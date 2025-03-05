@@ -4,7 +4,7 @@
 //! There are many built in resources: Rooms, Items, Tilesets, Images,
 //! but you can also create your own definitions.
 
-use super::{object::ObjectRecipe, room::Room};
+use super::{object::ObjectRecipe, room::RoomDescriptor};
 use crate::format::FormatDefinition;
 use futures_signals::signal::Mutable;
 use serde::{Deserialize, Serialize};
@@ -185,12 +185,14 @@ impl ResourceDatabase {
     }
 }
 
+pub type Handle<T> = Mutable<T>;
+
 /// An entry of a resource as saved on disk (or nested in another resource).
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceEntry {
     path: PathBuf,
     #[serde(skip)]
-    data: Option<Mutable<Resource>>,
+    data: Option<Handle<Resource>>,
 }
 
 /// A temporary sample of a resource as the project is gathering UUIDs.
@@ -201,11 +203,11 @@ pub struct ResourceSample {
 
 impl ResourceEntry {
     /// Returns a safe, hot-reloadable reference to some resource.
-    pub fn get_ref(&mut self) -> Result<Mutable<Resource>, ResourceLoadError> {
+    pub fn get_ref(&mut self) -> Result<Handle<Resource>, ResourceLoadError> {
         match &self.data {
             Some(existing_data) => Ok(existing_data.clone()),
             None => {
-                let loaded_data = Mutable::new(Resource::load(&self.path)?);
+                let loaded_data = Handle::new(Resource::load(&self.path)?);
                 self.data = Some(loaded_data.clone());
                 Ok(loaded_data)
             }
@@ -224,7 +226,7 @@ pub struct Resource {
 pub enum ResourceData {
     Format(FormatDefinition),
     ObjectRecipe(ObjectRecipe),
-    Room(Room),
+    Room(RoomDescriptor),
     Custom(CustomResourceData),
 }
 
@@ -266,7 +268,7 @@ pub enum ResourceRef {
 pub struct ExternalResource {
     pub uuid: Uuid,
     #[serde(skip)]
-    pub handle: Option<Mutable<Resource>>,
+    pub handle: Option<Handle<Resource>>,
 }
 
 impl PartialEq for ExternalResource {
